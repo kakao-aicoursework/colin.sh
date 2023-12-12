@@ -90,7 +90,7 @@ def send_message(message_log, functions, gpt_model="gpt-3.5-turbo", temperature=
 
 
 def main():
-    get_context_from_file('./project_data_talk_channel')
+    get_context_from_file('project_data_talk_channel')
     message_log = [
         {
             "role": "system",
