@@ -1,5 +1,4 @@
 from dto import ChatbotRequest
-import aiohttp
 import time
 import logging
 import vector_repo
@@ -13,6 +12,8 @@ from langchain.schema import (
 )
 from langchain.chat_models import ChatOpenAI
 import os
+import requests
+
 os.environ["OPENAI_API_KEY"] = ""
 
 logger = logging.getLogger("Callback")
@@ -21,7 +22,7 @@ chat = ChatOpenAI(temperature=0)
 db = vector_repo.init_db("project_data_kakao_sync.txt")
 system_message = "assistant는 카카오 서비스 제공자입니다. user의 내용을 참고하여 안내하라."
 
-async def callback_handler(request: ChatbotRequest) -> dict:
+def callback_handler(request: ChatbotRequest) -> dict:
 
     docs = vector_repo.get_relevant_documents(db, 2, request.userRequest.utterance)
     doc_contents = []
@@ -64,6 +65,4 @@ async def callback_handler(request: ChatbotRequest) -> dict:
     url = request.userRequest.callbackUrl
 
     if url:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url=url, json=payload, ssl=False) as resp:
-                await resp.json()
+        requests.post(url=url, json=payload, verify=False)
