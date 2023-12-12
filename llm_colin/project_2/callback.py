@@ -13,7 +13,7 @@ from langchain.schema import (
 )
 from langchain.chat_models import ChatOpenAI
 import os
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = ""
 
 logger = logging.getLogger("Callback")
 
