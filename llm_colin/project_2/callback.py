@@ -1,29 +1,46 @@
 from dto import ChatbotRequest
-from samples import list_card
 import aiohttp
 import time
 import logging
-import openai
+import vector_repo
+from langchain import LLMChain
+from langchain.prompts.chat import (
+    ChatPromptTemplate,
+    HumanMessagePromptTemplate,
+)
+from langchain.schema import (
+    SystemMessage
+)
+from langchain.chat_models import ChatOpenAI
+import os
+os.environ["OPENAI_API_KEY"] = "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"
 
-# 환경 변수 처리 필요!
-openai.api_key = ''
-SYSTEM_MSG = "당신은 카카오 서비스 제공자입니다."
 logger = logging.getLogger("Callback")
+
+chat = ChatOpenAI(temperature=0)
+db = vector_repo.init_db("project_data_kakao_sync.txt")
+system_message = "assistant는 카카오 서비스 제공자입니다. user의 내용을 참고하여 안내하라."
 
 async def callback_handler(request: ChatbotRequest) -> dict:
 
-    # ===================== start =================================
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": SYSTEM_MSG},
-            {"role": "user", "content": request.userRequest.utterance},
-        ],
-        temperature=0,
-    )
+    docs = vector_repo.get_relevant_documents(db, 2, request.userRequest.utterance)
+    doc_contents = []
+    for doc in docs:
+        doc_contents.append(doc.page_content)
+    system_message_prompt = SystemMessage(content=system_message)
 
-    # focus
-    output_text = response.choices[0].message.content
+    human_template = ("가이드 문서: {doc_contents}\n"
+                      "위 정보를 참조해서 아래 질문에 대한 답변을 만들어줘\n"
+                      "---질문\n"
+                      "{user}"
+                      "---"
+                      )
+    human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+
+    chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
+    chain = LLMChain(llm=chat, prompt=chat_prompt)
+
+    llm_response = chain.run(doc_contents=doc_contents, user=request.userRequest.utterance)
 
    # 참고링크 통해 payload 구조 확인 가능
     payload = {
@@ -32,7 +49,7 @@ async def callback_handler(request: ChatbotRequest) -> dict:
             "outputs": [
                 {
                     "simpleText": {
-                        "text": output_text
+                        "text": llm_response
                     }
                 }
             ]
