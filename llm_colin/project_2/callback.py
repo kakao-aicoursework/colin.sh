@@ -1,68 +1,54 @@
-from dto import ChatbotRequest
-import time
+import os
 import logging
-import vector_repo
+import requests
+from chroma import vector_repo
 from langchain import LLMChain
 from langchain.prompts.chat import (
     ChatPromptTemplate,
-    HumanMessagePromptTemplate,
-)
-from langchain.schema import (
-    SystemMessage
 )
 from langchain.chat_models import ChatOpenAI
-import os
-import requests
+from model.template.template_api import read_prompt_template
+from model.chat_request import ChatbotRequest
 
 os.environ["OPENAI_API_KEY"] = ""
+vector_repo.init_db("chroma/kakao_reference/")
 
 logger = logging.getLogger("Callback")
-
-chat = ChatOpenAI(temperature=0)
-db = vector_repo.init_db("project_data_kakao_sync.txt")
-system_message = "assistant는 카카오 서비스 제공자입니다. user의 내용을 참고하여 안내하라."
+ask_chain = LLMChain(
+    llm=ChatOpenAI(temperature=0),
+    prompt=ChatPromptTemplate.from_template(
+        template=read_prompt_template('./model/template/kakao_service_template.txt')
+    ),
+    output_key="answer",
+    verbose=True,
+)
 
 def callback_handler(request: ChatbotRequest) -> dict:
+    question = request.userRequest.utterance
 
-    docs = vector_repo.get_relevant_documents(db, 2, request.userRequest.utterance)
+    docs = vector_repo.search(question, 2)
     doc_contents = []
     for doc in docs:
         doc_contents.append(doc.page_content)
-    system_message_prompt = SystemMessage(content=system_message)
 
-    human_template = ("가이드 문서: {doc_contents}\n"
-                      "위 정보를 참조해서 아래 질문에 대한 답변을 만들어줘\n"
-                      "---질문\n"
-                      "{user}"
-                      "---"
-                      )
-    human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+    answer = ask_chain.run(dict(documents=docs,
+                                user=question,
+                                # chat_history=get_chat_history()
+                                ))
 
-    chat_prompt = ChatPromptTemplate.from_messages([system_message_prompt, human_message_prompt])
-    chain = LLMChain(llm=chat, prompt=chat_prompt)
-
-    llm_response = chain.run(doc_contents=doc_contents, user=request.userRequest.utterance)
-
-   # 참고링크 통해 payload 구조 확인 가능
     payload = {
         "version": "2.0",
         "template": {
             "outputs": [
                 {
                     "simpleText": {
-                        "text": llm_response
+                        "text": answer
                     }
                 }
             ]
         }
     }
-    # ===================== end =================================
-    # 참고링크1 : https://kakaobusiness.gitbook.io/main/tool/chatbot/skill_guide/ai_chatbot_callback_guide
-    # 참고링크1 : https://kakaobusiness.gitbook.io/main/tool/chatbot/skill_guide/answer_json_format
-
-    time.sleep(1.0)
 
     url = request.userRequest.callbackUrl
-
     if url:
         requests.post(url=url, json=payload, verify=False)

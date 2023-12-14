@@ -1,0 +1,9 @@
+당신은 고객센터의 직원입니다. reference의 내용을 참고하여 question에 대한 안내를 해주세요.
+
+<reference>
+{documents}
+</reference>
+
+<question>
+{user}
+</question>
