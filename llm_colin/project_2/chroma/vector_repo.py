@@ -34,7 +34,6 @@ def load_documents_from_file(file_path, service_name):
         # Add service name as meta-data to each document
         for split_doc in markdown_documents_split:
             split_doc.metadata['service'] = service_name
-            print(split_doc.metadata)
             # setattr(split_doc, "service", service_name)  # use setattr to add attribute
             markdown_documents_with_meta.append(split_doc)
 

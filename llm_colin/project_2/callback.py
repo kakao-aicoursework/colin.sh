@@ -8,6 +8,8 @@ from langchain.prompts.chat import (
     ChatPromptTemplate,
 )
 from langchain.chat_models import ChatOpenAI
+
+from history import load_conversation_history, get_chat_history, log_user_message, log_bot_message
 from model.template.template_api import read_prompt_template
 from model.chat_request import ChatbotRequest
 
@@ -24,21 +26,27 @@ ask_chain = LLMChain(
 )
 
 def document_to_json(doc):
-    return json.dumps(doc.__dict__)
+    return json.dumps(doc.__dict__).encode('utf8')
 
 def callback_handler(request: ChatbotRequest) -> dict:
+    conversation_id = request.userRequest.user.id
+    history_file = load_conversation_history(conversation_id)
+
     question = request.userRequest.utterance
 
     docs = vector_repo.search(question, 2)
-    print(len(docs))
     doc_contents = []
     for doc in docs:
         doc_contents.append(document_to_json(doc))
 
+    history = get_chat_history(conversation_id)
     answer = ask_chain.run(dict(documents=doc_contents,
                                 user=question,
-                                # chat_history=get_chat_history()
+                                chat_histories=history
                                 ))
+
+    log_user_message(history_file, question)
+    log_bot_message(history_file, answer)
 
     payload = {
         "version": "2.0",
