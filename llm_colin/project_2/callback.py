@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import requests
 from chroma import vector_repo
@@ -11,7 +12,6 @@ from model.template.template_api import read_prompt_template
 from model.chat_request import ChatbotRequest
 
 os.environ["OPENAI_API_KEY"] = ""
-vector_repo.init_db("chroma/kakao_reference/")
 
 logger = logging.getLogger("Callback")
 ask_chain = LLMChain(
@@ -23,15 +23,19 @@ ask_chain = LLMChain(
     verbose=True,
 )
 
+def document_to_json(doc):
+    return json.dumps(doc.__dict__)
+
 def callback_handler(request: ChatbotRequest) -> dict:
     question = request.userRequest.utterance
 
     docs = vector_repo.search(question, 2)
+    print(len(docs))
     doc_contents = []
     for doc in docs:
-        doc_contents.append(doc.page_content)
+        doc_contents.append(document_to_json(doc))
 
-    answer = ask_chain.run(dict(documents=docs,
+    answer = ask_chain.run(dict(documents=doc_contents,
                                 user=question,
                                 # chat_history=get_chat_history()
                                 ))
