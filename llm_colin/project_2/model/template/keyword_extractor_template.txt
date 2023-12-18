@@ -1,0 +1,9 @@
+<chat history>
+{chat_histories}
+</chat history>
+
+<question>
+{question}
+</question>
+
+What would be the keywords to search in the Vector DB for information related to this question based on the provided chat history?
